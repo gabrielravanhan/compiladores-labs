@@ -100,6 +100,101 @@ fazer**. Quem escreveu o compilador faz. Não é desconfiança; é o formato.
 
 ---
 
+## Tabela de tokens da MPL
+
+O analisador léxico transforma o código-fonte em uma lista de tokens no seguinte formato:
+
+```text
+linha,coluna,TIPO,lexema
+```
+
+A coluna indica a posição do primeiro caractere do token, começando em 1.
+
+### Palavras reservadas
+
+| Lexema | Token gerado |
+|---|---|
+| `funcao` | `FUNCAO` |
+| `retorne` | `RETORNE` |
+| `se` | `SE` |
+| `senao` | `SENAO` |
+| `enquanto` | `ENQUANTO` |
+| `escreva` | `ESCREVA` |
+| `inteiro` | `TIPO_INTEIRO` |
+| `real` | `TIPO_REAL` |
+| `logico` | `TIPO_LOGICO` |
+| `texto` | `TIPO_TEXTO` |
+| `vazio` | `TIPO_VAZIO` |
+| `verdadeiro` | `LOGICO` |
+| `falso` | `LOGICO` |
+| `e` | `E` |
+| `ou` | `OU` |
+| `nao` | `NAO` |
+
+### Identificadores e literais
+
+| Forma no código-fonte | Token gerado | Exemplo |
+|---|---|---|
+| Nome iniciado por letra ou `_`, seguido de letras, dígitos ou `_` | `ID` | `principal`, `idade`, `_contador` |
+| Um ou mais dígitos | `INTEIRO` | `0`, `42`, `1000` |
+| Dígitos, ponto e dígitos | `REAL` | `3.14`, `0.5`, `10.0` |
+| Texto entre aspas duplas | `TEXTO` | `"oi"`, `"linha\n"` |
+| `verdadeiro` ou `falso` | `LOGICO` | `verdadeiro`, `falso` |
+
+### Operadores
+
+| Lexema | Token gerado |
+|---|---|
+| `+` | `MAIS` |
+| `-` | `MENOS` |
+| `*` | `VEZES` |
+| `/` | `DIVIDE` |
+| `%` | `RESTO` |
+| `==` | `IGUAL` |
+| `!=` | `DIFERENTE` |
+| `<` | `MENOR` |
+| `<=` | `MENOR_IGUAL` |
+| `>` | `MAIOR` |
+| `>=` | `MAIOR_IGUAL` |
+| `=` | `ATRIBUI` |
+
+### Delimitadores
+
+| Lexema | Token gerado |
+|---|---|
+| `(` | `ABRE_PAR` |
+| `)` | `FECHA_PAR` |
+| `{` | `ABRE_CHAVE` |
+| `}` | `FECHA_CHAVE` |
+| `,` | `VIRGULA` |
+| `;` | `PONTO_VIRGULA` |
+
+### Fim do arquivo
+
+| Situação | Token gerado | Lexema |
+|---|---|---|
+| Final do programa | `FIM_ARQUIVO` | vazio |
+
+O token `FIM_ARQUIVO` é sempre o último token da lista. Como o lexema é vazio, a linha impressa termina com vírgula.
+
+Exemplo:
+
+```text
+4,1,FIM_ARQUIVO,
+```
+
+### Comentários e espaços
+
+Comentários e espaços não geram tokens.
+
+| Forma | Comportamento |
+|---|---|
+| `// comentário` | Ignorado até o fim da linha |
+| `/* comentário */` | Ignorado até encontrar o primeiro `*/` |
+| Espaço, tabulação, `\r` e `\n` | Ignorados, servindo apenas para separar tokens |
+
+---
+
 ## O verificador
 
 ```bash

@@ -25,7 +25,7 @@ class Token:
         return f"{self.linha},{self.coluna},{self.tipo},{self.lexema}"
 
 
-PALAVRAS_RESERVADAS = {
+PALAVRAS_RESERVADAS_E_LITERAIS = {
     'funcao': 'FUNCAO',
     'retorne': 'RETORNE',
     'se': 'SE',
@@ -44,19 +44,18 @@ PALAVRAS_RESERVADAS = {
     'nao': 'NAO',
 }
 
-# Precisam ser testados antes dos operadores de um caractere: '<=' antes de
-# '<', e o mesmo para '==', '!=' e '>='. E a armadilha desta entrega.
-OPERADORES_DOIS_CHARES = {
+OPERADORES_DE_TAMANHO_DOIS = {
     '==': 'IGUAL',
     '!=': 'DIFERENTE',
     '<=': 'MENOR_IGUAL',
     '>=': 'MAIOR_IGUAL',
 }
 
-OPERADORES_UM_CHAR = {
+OPERADORES_DELIMITADORES_DE_TAMANHO_UM = {
     '+': 'MAIS',
     '-': 'MENOS',
     '*': 'VEZES',
+    '/': 'DIVIDE',
     '%': 'RESTO',
     '<': 'MENOR',
     '>': 'MAIOR',
@@ -80,7 +79,7 @@ def _eh_digito(c):
     return '0' <= c <= '9'
 
 
-def _eh_alfanum(c):
+def _eh_alfanumerico(c):
     return _eh_letra(c) or _eh_digito(c)
 
 
@@ -92,134 +91,158 @@ def analisar(fonte):
     linha = 1
     coluna = 1
 
-    while i < n:
-        c = fonte[i]
+    def atual(deslocamento=0):
+        posicao = i + deslocamento
 
-        if c == '\n':
+        if posicao >= n:
+            return ''
+
+        return fonte[posicao]
+
+    def avancar(quantidade=1):
+        nonlocal i, linha, coluna
+
+        for _ in range(quantidade):
+            c = fonte[i]
             i += 1
-            linha += 1
-            coluna = 1
-            continue
 
-        if c in ' \t\r':
-            i += 1
-            coluna += 1
-            continue
-
-        if c == '/' and i + 1 < n and fonte[i + 1] == '/':
-            i += 2
-            coluna += 2
-            while i < n and fonte[i] != '\n':
-                i += 1
+            if c == '\n':
+                linha += 1
+                coluna = 1
+            else:
                 coluna += 1
+
+    def adicionar_token(tipo, lexema, linha_token=None, coluna_token=None):
+        tokens.append(Token(
+            tipo,
+            lexema,
+            linha if linha_token is None else linha_token,
+            coluna if coluna_token is None else coluna_token,
+        ))
+
+    while i < n:
+        c = atual()
+
+        if c in ' \t\r\n':
+            avancar()
             continue
 
-        if c == '/' and i + 1 < n and fonte[i + 1] == '*':
+        if c == '/' and atual(1) == '/':
+            avancar(2)
+
+            while i < n and atual() != '\n':
+                avancar()
+
+            continue
+
+        if c == '/' and atual(1) == '*':
             l0, c0 = linha, coluna
-            i += 2
-            coluna += 2
+            avancar(2)
             fechado = False
+
             while i < n:
-                if fonte[i] == '*' and i + 1 < n and fonte[i + 1] == '/':
-                    i += 2
-                    coluna += 2
+                if atual() == '*' and atual(1) == '/':
+                    avancar(2)
                     fechado = True
                     break
-                if fonte[i] == '\n':
-                    i += 1
-                    linha += 1
-                    coluna = 1
-                else:
-                    i += 1
-                    coluna += 1
+
+                avancar()
+
             if not fechado:
                 raise ErroMPL('lexico', l0, c0, 'comentario de bloco nao fechado')
+
             continue
 
         if _eh_letra(c):
             l0, c0 = linha, coluna
-            j = i
-            while j < n and _eh_alfanum(fonte[j]):
-                j += 1
-            palavra = fonte[i:j]
-            coluna += j - i
-            i = j
-            tipo = PALAVRAS_RESERVADAS.get(palavra, 'ID')
-            tokens.append(Token(tipo, palavra, l0, c0))
+            inicio = i
+
+            while i < n and _eh_alfanumerico(atual()):
+                avancar()
+
+            palavra = fonte[inicio:i]
+            tipo = PALAVRAS_RESERVADAS_E_LITERAIS.get(palavra, 'ID')
+            adicionar_token(tipo, palavra, l0, c0)
             continue
 
         if _eh_digito(c):
             l0, c0 = linha, coluna
-            j = i
-            while j < n and _eh_digito(fonte[j]):
-                j += 1
-            if j < n and fonte[j] == '.':
-                if j + 1 < n and _eh_digito(fonte[j + 1]):
-                    k = j + 1
-                    while k < n and _eh_digito(fonte[k]):
-                        k += 1
-                    lexema = fonte[i:k]
-                    coluna += k - i
-                    i = k
-                    tokens.append(Token('REAL', lexema, l0, c0))
-                    continue
-                col_ponto = c0 + (j - i)
-                raise ErroMPL('lexico', l0, col_ponto,
-                              'o ponto do numero real exige digito antes e depois')
-            lexema = fonte[i:j]
-            coluna += j - i
-            i = j
-            tokens.append(Token('INTEIRO', lexema, l0, c0))
+            inicio = i
+
+            while i < n and _eh_digito(atual()):
+                avancar()
+
+            if atual() == '.':
+                if not _eh_digito(atual(1)):
+                    raise ErroMPL('lexico', linha, coluna,
+                                  'o ponto do numero real exige digito antes e depois')
+
+                avancar()
+
+                while i < n and _eh_digito(atual()):
+                    avancar()
+
+                lexema = fonte[inicio:i]
+                adicionar_token('REAL', lexema, l0, c0)
+                continue
+
+            lexema = fonte[inicio:i]
+            adicionar_token('INTEIRO', lexema, l0, c0)
             continue
 
         if c == '"':
             l0, c0 = linha, coluna
-            j = i + 1
+            inicio = i
+            avancar()
             fechado = False
-            while j < n:
-                cj = fonte[j]
+
+            while i < n:
+                cj = atual()
+
                 if cj == '"':
-                    j += 1
+                    avancar()
                     fechado = True
                     break
+
                 if cj == '\n':
                     break
+
                 if cj == '\\':
-                    if j + 1 < n and fonte[j + 1] in ESCAPES_VALIDOS:
-                        j += 2
-                        continue
-                    col_barra = coluna + (j - i)
-                    raise ErroMPL('lexico', linha, col_barra,
-                                  'escape desconhecido dentro de texto')
-                j += 1
+                    linha_barra = linha
+                    coluna_barra = coluna
+
+                    avancar()
+
+                    if atual() not in ESCAPES_VALIDOS:
+                        raise ErroMPL('lexico', linha_barra, coluna_barra,
+                                      'escape desconhecido dentro de texto')
+
+                    avancar()
+                    continue
+
+                avancar()
+
             if not fechado:
                 raise ErroMPL('lexico', l0, c0, 'texto sem fechar na mesma linha')
-            lexema = fonte[i:j]
-            coluna += j - i
-            i = j
-            tokens.append(Token('TEXTO', lexema, l0, c0))
+
+            lexema = fonte[inicio:i]
+            adicionar_token('TEXTO', lexema, l0, c0)
             continue
 
         dois = fonte[i:i + 2]
-        if dois in OPERADORES_DOIS_CHARES:
-            tokens.append(Token(OPERADORES_DOIS_CHARES[dois], dois, linha, coluna))
-            i += 2
-            coluna += 2
+
+        if dois in OPERADORES_DE_TAMANHO_DOIS:
+            adicionar_token(OPERADORES_DE_TAMANHO_DOIS[dois], dois)
+            avancar(2)
             continue
 
-        if c == '/':
-            tokens.append(Token('DIVIDE', c, linha, coluna))
-            i += 1
-            coluna += 1
-            continue
-
-        if c in OPERADORES_UM_CHAR:
-            tokens.append(Token(OPERADORES_UM_CHAR[c], c, linha, coluna))
-            i += 1
-            coluna += 1
+        if c in OPERADORES_DELIMITADORES_DE_TAMANHO_UM:
+            adicionar_token(OPERADORES_DELIMITADORES_DE_TAMANHO_UM[c], c)
+            avancar()
             continue
 
         raise ErroMPL('lexico', linha, coluna, f'caractere invalido {c!r}')
 
     tokens.append(Token('FIM_ARQUIVO', '', linha, coluna))
     return tokens
+
