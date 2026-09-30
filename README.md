@@ -195,6 +195,64 @@ Comentários e espaços não geram tokens.
 
 ---
 
+## Gramática da MPL
+
+O analisador sintático (`mplc/sintatico.py`) é de descida recursiva: cada
+regra abaixo virou uma função com o mesmo nome, com uma função por nível de
+precedência. As duas exceções são `tipo_dado` e `tipo_retorno`, que são só
+uma escolha entre tokens e por isso são conferidas pelos dicionários
+`TIPOS_DE_DADO` e `TIPOS_DE_RETORNO`. Os terminais são os tipos de token da
+tabela acima. Notação EBNF: `{ x }` repete zero ou mais vezes e
+`[ x ]` é opcional.
+
+```ebnf
+programa      = { funcao } FIM_ARQUIVO ;
+funcao        = FUNCAO tipo_retorno ID ABRE_PAR [ parametro { VIRGULA parametro } ] FECHA_PAR bloco ;
+parametro     = tipo_dado ID ;
+tipo_dado     = TIPO_INTEIRO | TIPO_REAL | TIPO_LOGICO | TIPO_TEXTO ;
+tipo_retorno  = tipo_dado | TIPO_VAZIO ;
+
+bloco         = ABRE_CHAVE { comando } FECHA_CHAVE ;
+comando       = declaracao | atribuicao | chamada PONTO_VIRGULA | se | enquanto
+              | escreva | retorne | bloco ;
+declaracao    = tipo_dado ID [ ATRIBUI expressao ] PONTO_VIRGULA ;
+atribuicao    = ID ATRIBUI expressao PONTO_VIRGULA ;
+se            = SE ABRE_PAR expressao FECHA_PAR bloco [ SENAO bloco ] ;
+enquanto      = ENQUANTO ABRE_PAR expressao FECHA_PAR bloco ;
+escreva       = ESCREVA ABRE_PAR expressao FECHA_PAR PONTO_VIRGULA ;
+retorne       = RETORNE [ expressao ] PONTO_VIRGULA ;
+
+expressao     = ou ;
+ou            = e { OU e } ;
+e             = igualdade { E igualdade } ;
+igualdade     = relacional { ( IGUAL | DIFERENTE ) relacional } ;
+relacional    = aditivo { ( MENOR | MENOR_IGUAL | MAIOR | MAIOR_IGUAL ) aditivo } ;
+aditivo       = multiplicativo { ( MAIS | MENOS ) multiplicativo } ;
+multiplicativo = unario { ( VEZES | DIVIDE | RESTO ) unario } ;
+unario        = ( NAO | MENOS ) unario | primario ;
+primario      = INTEIRO | REAL | LOGICO | TEXTO | ID | chamada
+              | ABRE_PAR expressao FECHA_PAR ;
+chamada       = ID ABRE_PAR [ expressao { VIRGULA expressao } ] FECHA_PAR ;
+```
+
+**Como a precedência está codificada:** cada nível de precedência é uma regra,
+e cada regra só chama a do nível **imediatamente mais forte**. Por isso o
+operador mais fraco (`ou`) fica mais perto da raiz da árvore, e o mais forte
+(unário, parênteses) fica nas folhas. Os binários usam repetição `{ ... }`,
+implementada como um laço que vai pendurando a árvore à esquerda. É o que faz
+`10 - 4 - 3` virar `(10 - 4) - 3`. Já `unario` chama a si mesmo à direita, o
+que dá a associatividade à direita de `nao` e do `-` unário.
+
+**Onde a gramática precisa olhar dois tokens:** um comando que começa com `ID`
+pode ser uma atribuição (`x = ...`) ou uma chamada (`f(...)`). O parser olha
+o token seguinte (`ATRIBUI` ou `ABRE_PAR`) para decidir. O mesmo vale em
+`primario`, para separar variável de chamada.
+
+**Erros:** o erro sintático é relatado na linha e coluna do token que apareceu
+no lugar do esperado. O parser para no primeiro erro.
+
+---
+
 ## O verificador
 
 ```bash
