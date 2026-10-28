@@ -1,6 +1,7 @@
 *.mplb
 __pycache__/
 *.pyc
-evidencias/
+evidencias/*
+!evidencias/verificacao-3.txt
 .DS_Store
 .idea
