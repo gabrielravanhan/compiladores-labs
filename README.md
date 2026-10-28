@@ -253,6 +253,12 @@ no lugar do esperado. O parser para no primeiro erro.
 
 ---
 
+## Entrega 3 — Escopos e tabela de símbolos
+
+Cada escopo é representado por um objeto `Escopo`, que contém um dicionário de símbolos e uma referência ao escopo pai. A busca começa no escopo atual e percorre os pais, permitindo que uma declaração interna esconda uma externa sem apagá-la. Uma lista mantém os escopos na ordem de abertura, enquanto os dicionários preservam a ordem de declaração para gerar a tabela exigida. Essa organização distingue declarações com o mesmo nome em escopos diferentes e permite associá-las a posições de memória na Entrega 4.
+
+---
+
 ## O verificador
 
 ```bash
