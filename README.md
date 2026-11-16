@@ -259,6 +259,64 @@ Cada escopo é representado por um objeto `Escopo`, que contém um dicionário d
 
 ---
 
+## Entrega 4 — Código intermediário e máquina virtual
+
+O código intermediário usa temporários `t0`, `t1`, etc. e uma operação por
+linha. Cada símbolo recebe uma posição `v0`, `v1`, etc., distinguindo variáveis
+com o mesmo nome em escopos diferentes. O gerador traduz essas operações para
+instruções de pilha e grava um `.mplb` em JSON legível, com uma instrução por
+linha, no formato `mplb-1`.
+
+A execução começa em `principal`. Cada chamada tem seu próprio registro de
+ativação, com variáveis locais, temporários, pilha de operandos e contador de
+instruções. Os argumentos são passados por valor e o retorno retoma a chamada
+anterior. O limite é de 1.000 registros simultâneos, incluindo `principal`.
+
+| Instrução | Efeito sobre a pilha e a execução |
+|---|---|
+| `CONST valor` | Empilha uma constante. |
+| `LOAD posição` | Empilha o valor de uma variável ou temporário local. |
+| `STORE posição` | Retira o topo e grava na posição local. |
+| `I2R` | Substitui o inteiro do topo por seu valor real. |
+| `BIN operador tipo` | Retira o operando direito e depois o esquerdo, aplica o operador e empilha o resultado. Aceita `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `e` e `ou`. |
+| `UN operador` | Substitui o topo pelo resultado de `-` ou `nao`. |
+| `PRINT tipo` | Retira e imprime o topo, seguido de quebra de linha. Reais usam seis casas e lógicos usam `verdadeiro` ou `falso`. |
+| `LABEL nome` | Marca um destino de desvio, sem alterar a pilha. |
+| `JUMP nome` | Continua no rótulo indicado, sem alterar a pilha. |
+| `JUMP_FALSE nome` | Retira a condição do topo e desvia quando ela é falsa. |
+| `CALL nome quantidade` | Retira os argumentos e abre um registro com pilha vazia e parâmetros locais. O retorno com valor será empilhado na chamada anterior. |
+| `RET 0` | Encerra uma função `vazio` e descarta seu registro. |
+| `RET 1` | Retira o valor de retorno, encerra o registro e empilha esse valor no chamador. |
+| `POP` | Descarta o topo da pilha. |
+| `LINHA linha coluna` | Registra a posição do comando MPL para mensagens de erro, sem alterar a pilha. |
+
+A divisão inteira trunca em direção a zero e o resto tem o sinal do
+dividendo. A conversão para real ocorre depois de calcular a expressão
+inteira quando exigida pela atribuição, pelo argumento ou pelo retorno.
+Os operadores `e` e `ou` avaliam ambos os operandos. Divisão ou resto por
+zero e estouro de chamadas geram erro de execução na linha do comando.
+
+O programa `exemplos/torre_hanoi.mpl` resolve a Torre de Hanói com três discos,
+imprime os sete movimentos e calcula o total por recursão. A saída esperada
+está em `exemplos/torre_hanoi.saida`.
+
+```bash
+./compilar --ir exemplos/torre_hanoi.mpl
+./compilar exemplos/torre_hanoi.mpl
+./executar exemplos/torre_hanoi.mplb
+make verificar E=4
+```
+
+No terminal do PyCharm, com o interpretador Python configurado:
+
+```powershell
+python -X utf8 -m mplc.principal exemplos/torre_hanoi.mpl
+python -X utf8 -m mplc.principal --rodar exemplos/torre_hanoi.mplb
+python -X utf8 -m unittest discover -s testes -p test_entrega4.py -v
+```
+
+---
+
 ## O verificador
 
 ```bash

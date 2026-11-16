@@ -388,7 +388,7 @@ def analisar(tokens):
             valor = token.lexema
 
         return No(f'literal {tipo} {valor}', [], token.linha, token.coluna,
-                  tipo=tipo, valor=valor)
+                  tipo=tipo, valor=valor, lexema=token.lexema)
 
     return programa()
 
