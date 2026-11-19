@@ -112,6 +112,13 @@ A coluna indica a posição do primeiro caractere do token, começando em 1.
 
 ### Palavras reservadas
 
+A expressão regular de cada palavra reservada é a própria palavra. O
+analisador lê a palavra inteira com a expressão do `ID`,
+`[a-zA-Z_][a-zA-Z0-9_]*`, e depois consulta o dicionário
+`PALAVRAS_RESERVADAS_E_LITERAIS`. Se a palavra estiver lá, vira o token da
+tabela abaixo; se não estiver, vira `ID`. Por isso `sePossivel` é um único
+`ID`, e não um `SE` seguido de `Possivel`.
+
 | Lexema | Token gerado |
 |---|---|
 | `funcao` | `FUNCAO` |
@@ -133,15 +140,20 @@ A coluna indica a posição do primeiro caractere do token, começando em 1.
 
 ### Identificadores e literais
 
-| Forma no código-fonte | Token gerado | Exemplo |
-|---|---|---|
-| Nome iniciado por letra ou `_`, seguido de letras, dígitos ou `_` | `ID` | `principal`, `idade`, `_contador` |
-| Um ou mais dígitos | `INTEIRO` | `0`, `42`, `1000` |
-| Dígitos, ponto e dígitos | `REAL` | `3.14`, `0.5`, `10.0` |
-| Texto entre aspas duplas | `TEXTO` | `"oi"`, `"linha\n"` |
-| `verdadeiro` ou `falso` | `LOGICO` | `verdadeiro`, `falso` |
+| Forma no código-fonte | Expressão regular | Token gerado | Exemplo |
+|---|---|---|---|
+| Nome iniciado por letra ou `_`, seguido de letras, dígitos ou `_` | `[a-zA-Z_][a-zA-Z0-9_]*` | `ID` | `principal`, `idade`, `_contador` |
+| Um ou mais dígitos | `[0-9]+` | `INTEIRO` | `0`, `42`, `1000` |
+| Dígitos, ponto e dígitos | `[0-9]+\.[0-9]+` | `REAL` | `3.14`, `0.5`, `10.0` |
+| Texto entre aspas duplas, numa linha só, com os escapes `\n`, `\t`, `\"` e `\\` | `"([^"\\\n]\|\\[nt"\\])*"` | `TEXTO` | `"oi"`, `"linha\n"` |
+| `verdadeiro` ou `falso` | `verdadeiro\|falso` | `LOGICO` | `verdadeiro`, `falso` |
 
 ### Operadores
+
+A expressão regular de cada operador e delimitador é o próprio lexema. Os
+operadores de dois caracteres (`==`, `!=`, `<=`, `>=`, no dicionário
+`OPERADORES_DE_TAMANHO_DOIS`) são testados **antes** dos de um caractere.
+Assim `x <= 3` vira `MENOR_IGUAL`, e não `MENOR` seguido de `ATRIBUI`.
 
 | Lexema | Token gerado |
 |---|---|
@@ -187,11 +199,25 @@ Exemplo:
 
 Comentários e espaços não geram tokens.
 
-| Forma | Comportamento |
-|---|---|
-| `// comentário` | Ignorado até o fim da linha |
-| `/* comentário */` | Ignorado até encontrar o primeiro `*/` |
-| Espaço, tabulação, `\r` e `\n` | Ignorados, servindo apenas para separar tokens |
+| Forma | Expressão regular | Comportamento |
+|---|---|---|
+| `// comentário` | `//[^\n]*` | Ignorado até o fim da linha |
+| `/* comentário */` | `/\*([^*]\|\*+[^*/])*\*+/` | Ignorado até encontrar o primeiro `*/` |
+| Espaço, tabulação, `\r` e `\n` | `[ \t\r\n]+` | Ignorados, servindo apenas para separar tokens |
+
+### Erros léxicos
+
+Tudo o que não casa com nenhuma expressão acima é erro léxico, relatado na
+linha e na coluna do caractere que estragou o token:
+
+| Situação | Exemplo | Onde o erro é apontado |
+|---|---|---|
+| Ponto sem dígito depois | `3.` | no `.` |
+| Ponto sem dígito antes | `.5` | no `.`, que não começa nenhum token |
+| Escape desconhecido | `"a\qb"` | na `\` |
+| Texto sem fechar na mesma linha | `"abc` | na `"` de abertura |
+| Comentário de bloco sem fechar | `/* ...` | no `/*` de abertura |
+| Caractere fora do alfabeto | `!`, `@`, `ç` fora de texto | no próprio caractere |
 
 ---
 
